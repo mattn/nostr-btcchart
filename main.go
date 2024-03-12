@@ -158,7 +158,7 @@ func upload(buf *bytes.Buffer) (string, error) {
 
 func generate(bundb *bun.DB) (string, error) {
 	var data []BtcLog
-	err := bundb.NewSelect().Model((*BtcLog)(nil)).Order("timestamp").Limit(180).Scan(context.Background(), &data)
+	err := bundb.NewSelect().Model((*BtcLog)(nil)).Order("timestamp", "DESC").Limit(180).Scan(context.Background(), &data)
 	if err != nil {
 		return "", err
 	}
@@ -302,7 +302,7 @@ func main() {
 		log.Fatal("NULLPOGA_NSEC is not set")
 	}
 
-	//time.Local = time.FixedZone("Local", 9*60*60)
+	time.Local = time.FixedZone("Local", 9*60*60)
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		log.Fatal(err)
