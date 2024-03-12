@@ -302,7 +302,7 @@ func main() {
 		log.Fatal("NULLPOGA_NSEC is not set")
 	}
 
-	time.Local = time.FixedZone("Local", 9*60*60)
+	//time.Local = time.FixedZone("Local", 9*60*60)
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		log.Fatal(err)
