@@ -158,7 +158,7 @@ func upload(buf *bytes.Buffer) (string, error) {
 
 func generate(bundb *bun.DB) (string, error) {
 	var data []BtcLog
-	err := bundb.NewSelect().Model((*BtcLog)(nil)).Order("timestamp", "DESC").Limit(180).Scan(context.Background(), &data)
+	err := bundb.NewSelect().Model((*BtcLog)(nil)).Order("timestamp DESC").Limit(180).Scan(context.Background(), &data)
 	if err != nil {
 		return "", err
 	}
