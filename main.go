@@ -57,7 +57,7 @@ func (t XTicks) Ticks(min, max float64) []plot.Tick {
 	}
 	ticks := []plot.Tick{}
 	tm := time.Unix(int64(min), 0)
-	tm = tm.Add(time.Duration(-tm.Minute()))
+	tm = time.Date(tm.Year(), tm.Month(), tm.Day(), tm.Hour(), tm.Minute()-tm.Minute()%10, 0, 0, tm.Location())
 	c := 0
 	for {
 		tick := plot.Tick{Value: float64(tm.Unix())}
