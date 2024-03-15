@@ -8,7 +8,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"go-hep.org/x/hep/hplot"
 	"image/color"
 	"io"
 	"log"
@@ -16,7 +15,10 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"sort"
 	"time"
+
+	"go-hep.org/x/hep/hplot"
 
 	"github.com/dustin/go-humanize"
 	_ "github.com/lib/pq"
@@ -57,7 +59,7 @@ func (t XTicks) Ticks(min, max float64) []plot.Tick {
 	}
 	ticks := []plot.Tick{}
 	tm := time.Unix(int64(min), 0)
-	tm = time.Date(tm.Year(), tm.Month(), tm.Day(), tm.Hour(), tm.Minute()-tm.Minute()%10, 0, 0, tm.Location())
+	tm = time.Date(tm.Year(), tm.Month(), tm.Day(), tm.Hour(), tm.Minute()-tm.Minute()%10, 0, 0, time.UTC)
 	c := 0
 	for {
 		tick := plot.Tick{Value: float64(tm.Unix())}
@@ -157,12 +159,16 @@ func upload(buf *bytes.Buffer) (string, error) {
 	return p, nil
 }
 
-func generate(bundb *bun.DB) (string, error) {
+func generate(bundb *bun.DB, output string) (string, error) {
 	var data []BtcLog
-	err := bundb.NewSelect().Model((*BtcLog)(nil)).Order("timestamp desc").Limit(180).Offset(180).Scan(context.Background(), &data)
+	err := bundb.NewSelect().Model((*BtcLog)(nil)).Order("timestamp DESC").Limit(180).Scan(context.Background(), &data)
 	if err != nil {
 		return "", err
 	}
+
+	sort.Slice(data, func(i, j int) bool {
+		return data[i].Timestamp < data[j].Timestamp
+	})
 
 	var points plotter.XYs
 	for _, d := range data {
@@ -211,11 +217,9 @@ func generate(bundb *bun.DB) (string, error) {
 	line.Color = color.RGBA{R: 50, G: 255, B: 100, A: 255}
 	p.Add(line)
 
-	if true {
-		err := p.Save(5*vg.Inch, 4*vg.Inch, "output.png")
-		if err != nil {
-			return "", err
-		}
+	if output != "" {
+		err := p.Save(5*vg.Inch, 4*vg.Inch, output)
+		return "", err
 	}
 	var buf bytes.Buffer
 	w, err := p.WriterTo(5*vg.Inch, 4*vg.Inch, "png")
@@ -244,7 +248,7 @@ func handler(bundb *bun.DB, nsec string) func(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		img, err := generate(bundb)
+		img, err := generate(bundb, "")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -288,8 +292,10 @@ func init() {
 func main() {
 	var dsn string
 	var ver bool
+	var output string
 
 	flag.StringVar(&dsn, "dsn", os.Getenv("DATABASE_URL"), "Database source")
+	flag.StringVar(&output, "output", "", "output filename")
 	flag.BoolVar(&ver, "v", false, "show version")
 	flag.Parse()
 
@@ -298,12 +304,8 @@ func main() {
 		os.Exit(0)
 	}
 
-	nsec := os.Getenv("NULLPOGA_NSEC")
-	if nsec == "" {
-		log.Fatal("NULLPOGA_NSEC is not set")
-	}
-
 	time.Local = time.FixedZone("Local", 9*60*60)
+
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		log.Fatal(err)
@@ -311,6 +313,19 @@ func main() {
 
 	bundb := bun.NewDB(db, pgdialect.New())
 	defer bundb.Close()
+
+	if output != "" {
+		_, err := generate(bundb, output)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+
+	nsec := os.Getenv("NULLPOGA_NSEC")
+	if nsec == "" {
+		log.Fatal("NULLPOGA_NSEC is not set")
+	}
 
 	http.HandleFunc("/", handler(bundb, nsec))
 	addr := ":" + os.Getenv("PORT")
