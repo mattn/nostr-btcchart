@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"go-hep.org/x/hep/hplot"
@@ -49,73 +50,85 @@ type BtcLog struct {
 
 type XTicks struct {
 	Ticker plot.Ticker
-	Format string
 	Time   func(t float64) time.Time
 }
 
 func (t XTicks) Ticks(min, max float64) []plot.Tick {
-	if t.Format == "" {
-		t.Format = time.RFC3339
-	}
 	ticks := []plot.Tick{}
-	tm := time.Unix(int64(min), 0)
-	tm = time.Date(tm.Year(), tm.Month(), tm.Day(), tm.Hour(), tm.Minute()-tm.Minute()%10, 0, 0, time.UTC)
+	tmcur := time.Unix(int64(min), 0)
+	tmmax := time.Unix(int64(max), 0)
+	if max-min < 15000 {
+		tmcur = time.Date(tmcur.Year(), tmcur.Month(), tmcur.Day(), tmcur.Hour(), tmcur.Minute()-tmcur.Minute()%10, 0, 0, tmcur.Location())
+		tmmax = time.Date(tmmax.Year(), tmmax.Month(), tmmax.Day(), tmmax.Hour(), tmmax.Minute()-tmmax.Minute()%10, 0, 0, tmmax.Location())
+	} else if max-min < 90000 {
+		tmcur = time.Date(tmcur.Year(), tmcur.Month(), tmcur.Day(), tmcur.Hour(), 0, 0, 0, tmcur.Location())
+		tmmax = time.Date(tmmax.Year(), tmmax.Month(), tmmax.Day(), tmmax.Hour(), 0, 0, 0, tmmax.Location())
+	} else {
+		tmcur = time.Date(tmcur.Year(), tmcur.Month(), tmcur.Day(), 0, 0, 0, 0, tmcur.Location())
+		tmmax = time.Date(tmmax.Year(), tmmax.Month(), tmmax.Day(), 0, 0, 0, 0, tmmax.Location())
+	}
 	c := 0
 	for {
-		tick := plot.Tick{Value: float64(tm.Unix())}
+		tick := plot.Tick{Value: float64(tmcur.Unix())}
 		switch delta := max - min; {
 		case delta < 864000:
 			// delta is less than 10 days
 			// - mayor: every day (min: 0, max: 10)
 			// - minor: every day (min: 0, max: 10)
-			tick.Label = tm.Format(t.Format)
+			if delta < 90000 {
+				tick.Label = tmcur.Format("15:04")
+			} else {
+				tick.Label = tmcur.Format("01/02")
+			}
 			ticks = append(ticks, tick)
 		case delta < 7776000:
 			// delta is between 10 and 90 days
 			// - mayor: every 5 days (min: 2, max: 18)
 			// - minor: every day (min: 10, max: 90)
 			if c%5 == 0 {
-				tick.Label = tm.Format(t.Format)
+				tick.Label = tmcur.Format("01/02")
 			}
 			ticks = append(ticks, tick)
 		case delta < 15552000:
 			// delta is between 90 and 180 days
 			// mayor: on day 1 and 15 of every month (min: 5, max: 12)
 			// minor: on day 1, 5, 10, 15, 20, 25, 30 of every month (min: 17, max: 36)
-			if tm.Day() == 1 || tm.Day() == 15 {
-				tick.Label = tm.Format(t.Format)
+			if tmcur.Day() == 1 || tmcur.Day() == 15 {
+				tick.Label = tmcur.Format("01/02")
 			}
-			if tm.Day() == 1 || tm.Day()%5 == 0 {
+			if tmcur.Day() == 1 || tmcur.Day()%5 == 0 {
 				ticks = append(ticks, tick)
 			}
 		case delta < 47347200:
 			// delta is between 6 months and 18 months
 			// mayor: on day 1 of every month (min: 5, max: 18)
 			// minor: on day 1 and 15 of every month (min: 11, max: 36)
-			if tm.Day() == 1 {
-				tick.Label = tm.Format(t.Format)
+			if tmcur.Day() == 1 {
+				tick.Label = tmcur.Format("2004/01")
 			}
-			if tm.Day() == 1 || tm.Day() == 15 {
+			if tmcur.Day() == 1 || tmcur.Day() == 15 {
 				ticks = append(ticks, tick)
 			}
 		default:
 			// delta is higher than 18 months
 			// mayor: on the 1st of january (min: 1, max: inf.)
 			// minor: on day 1 of every month (min: 17, max inf.)
-			if tm.Day() == 1 && tm.Month() == time.January {
-				tick.Label = tm.Format(t.Format)
+			if tmcur.Day() == 1 && tmcur.Month() == time.January {
+				tick.Label = tmcur.Format("2004/01")
 			}
-			if tm.Day() == 1 {
+			if tmcur.Day() == 1 {
 				ticks = append(ticks, tick)
 			}
 		}
 		c = c + 1
 		if max-min < 15000 {
-			tm = tm.Add(10 * time.Minute)
+			tmcur = tmcur.Add(10 * time.Minute)
+		} else if max-min < 87000 {
+			tmcur = tmcur.Add(1 * time.Hour)
 		} else {
-			tm = tm.AddDate(0, 0, 1)
+			tmcur = tmcur.AddDate(0, 0, 1)
 		}
-		if tm.After(time.Unix(int64(max), 0)) {
+		if tmcur.After(tmmax) {
 			break
 		}
 	}
@@ -159,9 +172,12 @@ func upload(buf *bytes.Buffer) (string, error) {
 	return p, nil
 }
 
-func generate(bundb *bun.DB, output string) (string, error) {
+func generate(bundb *bun.DB, span int, output string) (string, error) {
+	if span < 2 || span > 43200 {
+		return "", errors.New("invalid request")
+	}
 	var data []BtcLog
-	err := bundb.NewSelect().Model((*BtcLog)(nil)).Order("timestamp DESC").Limit(180).Scan(context.Background(), &data)
+	err := bundb.NewSelect().Model((*BtcLog)(nil)).Order("timestamp DESC").Limit(span).Scan(context.Background(), &data)
 	if err != nil {
 		return "", err
 	}
@@ -191,7 +207,7 @@ func generate(bundb *bun.DB, output string) (string, error) {
 	p.X.LineStyle.Color = color.White
 	p.X.LineStyle.Width = vg.Points(1)
 	p.X.Tick.Color = color.White
-	p.X.Tick.Marker = XTicks{Format: "15:04"}
+	p.X.Tick.Marker = XTicks{}
 	p.X.Tick.Label.Rotation = math.Pi / 3
 	p.X.Tick.Label.XAlign = -1.2
 	p.X.Tick.Label.Color = color.White
@@ -202,6 +218,7 @@ func generate(bundb *bun.DB, output string) (string, error) {
 	p.Y.LineStyle.Color = color.White
 	p.Y.LineStyle.Width = vg.Points(1)
 	p.Y.Tick.Color = color.White
+	p.Y.Tick.Label.Color = color.White
 	p.Y.Tick.Marker = hplot.Ticks{
 		N:      10,
 		Format: "%.0f",
@@ -247,8 +264,17 @@ func handler(bundb *bun.DB, nsec string) func(w http.ResponseWriter, r *http.Req
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		tok := strings.Split(ev.Content, " ")
+		span := 180 * time.Minute
+		if len(tok) == 2 {
+			span, err = time.ParseDuration(tok[1])
+			if err == nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
 
-		img, err := generate(bundb, "")
+		img, err := generate(bundb, int(span/time.Minute), "")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -292,9 +318,11 @@ func init() {
 func main() {
 	var dsn string
 	var ver bool
+	var span time.Duration
 	var output string
 
 	flag.StringVar(&dsn, "dsn", os.Getenv("DATABASE_URL"), "Database source")
+	flag.DurationVar(&span, "span", 180*time.Minute, "span")
 	flag.StringVar(&output, "output", "", "output filename")
 	flag.BoolVar(&ver, "v", false, "show version")
 	flag.Parse()
@@ -315,7 +343,7 @@ func main() {
 	defer bundb.Close()
 
 	if output != "" {
-		_, err := generate(bundb, output)
+		_, err := generate(bundb, int(span/time.Minute), output)
 		if err != nil {
 			log.Fatal(err)
 		}
