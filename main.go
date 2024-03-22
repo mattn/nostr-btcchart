@@ -268,7 +268,7 @@ func handler(bundb *bun.DB, nsec string) func(w http.ResponseWriter, r *http.Req
 		span := 180 * time.Minute
 		if len(tok) == 2 {
 			span, err = time.ParseDuration(tok[1])
-			if err == nil {
+			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
