@@ -255,7 +255,13 @@ func handler(bundb *bun.DB, nsec string) func(w http.ResponseWriter, r *http.Req
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			w.Header().Set("content-type", "text/plain; charset=utf-8")
-			fmt.Fprintln(w, "ビットコインチャート")
+			var data []BtcLog
+			err := bundb.NewSelect().Model((*BtcLog)(nil)).Order("timestamp DESC").Limit(180).Scan(context.Background(), &data)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			json.NewEncoder(w).Encode(data)
 			return
 		}
 		var ev nostr.Event
