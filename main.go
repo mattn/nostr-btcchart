@@ -253,8 +253,8 @@ func generate(bundb *bun.DB, span int, output string) (string, error) {
 
 func handler(bundb *bun.DB, nsec string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			w.Header().Set("content-type", "text/plain; charset=utf-8")
+		if r.Method != http.MethodPost {
+			w.Header().Set("content-type", "application/json")
 			var data []BtcLog
 			err := bundb.NewSelect().Model((*BtcLog)(nil)).Order("timestamp DESC").Limit(180).Scan(context.Background(), &data)
 			if err != nil {
