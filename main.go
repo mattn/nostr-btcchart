@@ -9,10 +9,8 @@ import (
 	"flag"
 	"fmt"
 	"image/color"
-	"io"
 	"log"
 	"math"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"sort"
@@ -23,6 +21,7 @@ import (
 
 	"github.com/dustin/go-humanize"
 	_ "github.com/lib/pq"
+	"github.com/mattn/go-nostrbuild"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip19"
 	"github.com/uptrace/bun"
@@ -135,43 +134,6 @@ func (t XTicks) Ticks(min, max float64) []plot.Tick {
 	return ticks
 }
 
-func upload(buf *bytes.Buffer) (string, error) {
-	var b bytes.Buffer
-	w := multipart.NewWriter(&b)
-	part, err := w.CreateFormFile("fileToUpload", "fileToUpload")
-	if err != nil {
-		log.Fatalf("CreateFormFile: %v", err)
-	}
-	part.Write(buf.Bytes())
-	err = w.Close()
-	if err != nil {
-		log.Fatalf("Close: %v", err)
-	}
-	req, err := http.NewRequest(http.MethodPost, "https://nostr.build/api/upload/ios.php", &b)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", w.FormDataContentType())
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer req.Body.Close()
-
-	if resp.StatusCode != 200 {
-		if b, err := io.ReadAll(resp.Body); err == nil {
-			return "", errors.New(string(b))
-		}
-	}
-
-	var p string
-	err = json.NewDecoder(resp.Body).Decode(&p)
-	if err != nil {
-		return "", err
-	}
-	return p, nil
-}
-
 func generate(bundb *bun.DB, span int, output string) (string, error) {
 	if span < 2 || span > 43200 {
 		return "", errors.New("invalid request")
@@ -248,7 +210,11 @@ func generate(bundb *bun.DB, span int, output string) (string, error) {
 		return "", err
 	}
 
-	return upload(&buf)
+	result, err := nostrbuild.Upload(&buf)
+	if err != nil {
+		return "", err
+	}
+	return result.Data[0].URL, nil
 }
 
 func handler(bundb *bun.DB, nsec string) func(w http.ResponseWriter, r *http.Request) {
