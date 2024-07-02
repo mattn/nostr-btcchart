@@ -5,7 +5,7 @@ go 1.22.2
 require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/lib/pq v1.10.9
-	github.com/mattn/go-nostrbuild v0.0.1
+	github.com/mattn/go-nostrbuild v0.0.4
 	github.com/nbd-wtf/go-nostr v0.29.3
 	github.com/uptrace/bun v1.1.17
 	github.com/uptrace/bun/dialect/pgdialect v1.1.17

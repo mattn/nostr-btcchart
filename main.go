@@ -134,7 +134,7 @@ func (t XTicks) Ticks(min, max float64) []plot.Tick {
 	return ticks
 }
 
-func generate(bundb *bun.DB, span int, output string) (string, error) {
+func generate(bundb *bun.DB, span int, output string, sign func(*nostr.Event) error) (string, error) {
 	if span < 2 || span > 43200 {
 		return "", errors.New("invalid request")
 	}
@@ -210,7 +210,7 @@ func generate(bundb *bun.DB, span int, output string) (string, error) {
 		return "", err
 	}
 
-	result, err := nostrbuild.Upload(&buf)
+	result, err := nostrbuild.Upload(&buf, sign)
 	if err != nil {
 		return "", err
 	}
@@ -246,12 +246,6 @@ func handler(bundb *bun.DB, nsec string) func(w http.ResponseWriter, r *http.Req
 			}
 		}
 
-		img, err := generate(bundb, int(span/time.Minute), "")
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
 		eev := nostr.Event{}
 		var sk string
 		if _, s, err := nip19.Decode(nsec); err != nil {
@@ -266,6 +260,17 @@ func handler(bundb *bun.DB, nsec string) func(w http.ResponseWriter, r *http.Req
 			eev.PubKey = pub
 		} else {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+
+		sign := func(ev *nostr.Event) error {
+			ev.PubKey = eev.PubKey
+			return ev.Sign(sk)
+		}
+
+		img, err := generate(bundb, int(span/time.Minute), "", sign)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
 		eev.Content = img
@@ -315,7 +320,7 @@ func main() {
 	defer bundb.Close()
 
 	if output != "" {
-		_, err := generate(bundb, int(span/time.Minute), output)
+		_, err := generate(bundb, int(span/time.Minute), output, nil)
 		if err != nil {
 			log.Fatal(err)
 		}
