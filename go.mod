@@ -52,5 +52,3 @@ require (
 	gonum.org/v1/gonum v0.14.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/mattn/go-nostrbuild => ../go-nostrbuild
