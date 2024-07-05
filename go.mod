@@ -5,11 +5,11 @@ go 1.22.2
 require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/lib/pq v1.10.9
-	github.com/mattn/go-nostrbuild v0.0.6
-	github.com/nbd-wtf/go-nostr v0.33.0
-	github.com/uptrace/bun v1.1.17
-	github.com/uptrace/bun/dialect/pgdialect v1.1.17
-	go-hep.org/x/hep v0.34.1
+	github.com/mattn/go-nostrbuild v0.0.7
+	github.com/nbd-wtf/go-nostr v0.34.0
+	github.com/uptrace/bun v1.2.1
+	github.com/uptrace/bun/dialect/pgdialect v1.2.1
+	go-hep.org/x/hep v0.35.0
 	gonum.org/v1/plot v0.14.0
 )
 
@@ -17,7 +17,7 @@ require (
 	git.sr.ht/~sbinet/gg v0.5.0 // indirect
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.3 // indirect
-	github.com/btcsuite/btcd/btcutil v1.1.3 // indirect
+	github.com/btcsuite/btcd/btcutil v1.1.5 // indirect
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0 // indirect
 	github.com/campoy/embedmd v1.0.0 // indirect
 	github.com/decred/dcrd/crypto/blake256 v1.0.1 // indirect
@@ -44,11 +44,10 @@ require (
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8 // indirect
-	golang.org/x/image v0.15.0 // indirect
-	golang.org/x/net v0.19.0 // indirect
+	golang.org/x/image v0.18.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/sys v0.21.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
-	gonum.org/v1/gonum v0.14.0 // indirect
+	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/text v0.16.0 // indirect
+	gonum.org/v1/gonum v0.15.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
