@@ -273,10 +273,11 @@ func handler(bundb *bun.DB, nsec string) func(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		eev.Content = img
+		eev.Content = img + "\n#ビットコインチャート"
 		eev.CreatedAt = nostr.Now()
 		eev.Kind = ev.Kind
 		eev.Tags = eev.Tags.AppendUnique(nostr.Tag{"e", ev.ID, "", "reply"})
+		eev.Tags = eev.Tags.AppendUnique(nostr.Tag{"t", "ビットコインチャート"})
 		for _, te := range ev.Tags {
 			if te.Key() == "e" {
 				eev.Tags = eev.Tags.AppendUnique(te)
