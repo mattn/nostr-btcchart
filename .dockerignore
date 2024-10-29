@@ -1,3 +1,5 @@
 nostr-btcchart
 k8s
 *.sh
+*.bat
+*.cmd
